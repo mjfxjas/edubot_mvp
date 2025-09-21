@@ -46,3 +46,10 @@ SPRINT 1 Complete: Infrastructure in place and verified working!
 Commit: cbcf0e9
 
 
+## Sprint 2 – Lambda API Skeleton (2025-09-21)
+- Built Python Lambda container (3.12) with /health and /indexes
+- Pushed to ECR (v0.5, Docker schema v2 single-manifest)
+- Deployed Lambda in custom VPC (subnet subnet-057efaedf3ada76f0, SG sg-0b8487a7295172c71)
+- Attached AWSLambdaVPCAccessExecutionRole for ENI permissions
+- Created Function URL (IAM-only) and verified S3 access to indexes/
+
