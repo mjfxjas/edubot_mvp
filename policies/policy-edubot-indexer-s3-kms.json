@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3ReadRaw",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject","s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::edubot-mvp-private-bucket-147795258921",
+        "arn:aws:s3:::edubot-mvp-private-bucket-147795258921/raw/*"
+      ]
+    },
+    {
+      "Sid": "S3WriteProcessedAndIndexes",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject","s3:AbortMultipartUpload","s3:GetBucketLocation","s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::edubot-mvp-private-bucket-147795258921",
+        "arn:aws:s3:::edubot-mvp-private-bucket-147795258921/processed/*",
+        "arn:aws:s3:::edubot-mvp-private-bucket-147795258921/indexes/*"
+      ]
+    },
+    {
+      "Sid": "KmsUse",
+      "Effect": "Allow",
+      "Action": ["kms:Encrypt","kms:Decrypt","kms:GenerateDataKey","kms:DescribeKey"],
+      "Resource": "arn:aws:kms:us-east-1:147795258921:key/0c91428c-1e95-428d-9da2-c18ac6d42d67"
+    },
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
+      "Resource": "*"
+    }
+  ]
+}
