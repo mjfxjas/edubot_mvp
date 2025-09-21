@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>EduBot Lambda Test (auto STS)</title>
+  <style>body{font:14px/1.4 system-ui,sans-serif;margin:2rem;max-width:860px} input,button{font:inherit;padding:.4rem} pre{background:#f6f8fa;padding:1rem;white-space:pre-wrap}</style>
+</head>
+<body>
+  <h2>EduBot Lambda API Tester</h2>
+
+  <label>Function URL:
+    <input id="url" size="90" value="https://5azg2kusifo2t5dx6xeu5s3dbm0rooee.lambda-url.us-east-1.on.aws">
+  </label>
+  <p>
+    <button onclick="callApi('/health')">/health</button>
+    <button onclick="callApi('/indexes')">/indexes</button>
+  </p>
+
+  <h3>Response</h3>
+  <pre id="out">…</pre>
+
+  <!-- AWS SDK v2 because it has built-in SigV4 helpers in browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.1372.0/aws-sdk.min.js"></script>
+  <script>
+    async function fetchCreds() {
+      const r = await fetch("http://127.0.0.1:8080/creds");
+      if (!r.ok) throw new Error("cred server error " + r.status);
+      return r.json();
+    }
+
+    async function callApi(path) {
+      const base = document.getElementById("url").value.replace(/\/$/, "");
+      const url  = base + path;
+
+      const c = await fetchCreds();
+      const creds = new AWS.Credentials({
+        accessKeyId: c.AccessKeyId,
+        secretAccessKey: c.SecretAccessKey,
+        sessionToken: c.SessionToken
+      });
+
+      const req = new AWS.HttpRequest(url, "us-east-1");
+      req.method = "GET";
+      req.path   = path;
+      req.headers.host = new URL(base).host;
+      req.headers["content-type"] = "application/json";
+
+      const signer = new AWS.Signers.V4(req, "lambda");
+      signer.addAuthorization(creds, new Date());
+
+      const resp = await fetch(url, { method:"GET", headers: req.headers });
+      const text = await resp.text();
+      document.getElementById("out").textContent =
+        JSON.stringify({status: resp.status, headers: Object.fromEntries(resp.headers.entries())}, null, 2)
+        + "\n\n" + text;
+    }
+  </script>
+</body>
+</html>
