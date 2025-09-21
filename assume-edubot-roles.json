@@ -1,0 +1,12 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "AllowAssumeEduBotRoles",
+    "Effect": "Allow",
+    "Action": "sts:AssumeRole",
+    "Resource": [
+      "arn:aws:iam::147795258921:role/edubot-app-lambda",
+      "arn:aws:iam::147795258921:role/edubot-indexer-ecs"
+    ]
+  }]
+}

@@ -26,23 +26,6 @@ Commit: 5bbcb51
 Commit: dcb08d7
 
 ## 2025-09-20
-- Verified endpoints (available) and S3 route in route table
+- Verified infra: S3 Gateway endpoint, KMS Interface endpoint, route table updated
 
-Commit: 3a79ebb
-
-## 2025-09-21
-- Completed hardened storage layer: 
-  - S3 bucket: `edubot-mvp-private-bucket-147795258921`
-  - KMS key: `alias/edubot-mvp-kms`
-  - Policies: BlockPublicAccess, TLS-only, SSE-KMS default
-
-- IAM scaffolding:
-  - Roles: `edubot-app-lambda`, `edubot-indexer-ecs`, `edubot-indexer-exec`
-  - Customer-managed policies: `edubot-app-s3-kms`, `edubot-indexer-s3-kms`
-  - Tested assume-role path (user → role) and validated S3/KMS op
-
-SPRINT 1 Complete: Infrastructure in place and verified working! 
-
-Commit: cbcf0e9
-
-
+Commit: 
