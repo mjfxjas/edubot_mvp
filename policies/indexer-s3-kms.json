@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect":"Allow", "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::edubot-mvp-147795258921-us-east-1-curriculum"
+    },
+    { "Effect":"Allow", "Action": ["s3:GetObject","s3:PutObject"],
+      "Resource": "arn:aws:s3:::edubot-mvp-147795258921-us-east-1-curriculum/*"
+    },
+    { "Effect":"Allow",
+      "Action": ["kms:Decrypt","kms:Encrypt","kms:GenerateDataKey","kms:DescribeKey"],
+      "Resource": "arn:aws:kms:us-east-1:147795258921:key/*"
+    },
+    { "Effect":"Allow",
+      "Action": ["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
+      "Resource": "*"
+    }
+  ]
+}

@@ -1,13 +1,14 @@
+# Lambda Python base
 FROM public.ecr.aws/lambda/python:3.12
 
+# Install deps into /opt/python (Lambda layer path)
+COPY src/api/requirements.txt .
+RUN python -m pip install -r requirements.txt -t /opt/python
 
- COPY src/api/requirements.txt .
- RUN python -m pip install -r requirements.txt -t /opt/python
+# Copy your app code (handler + any helpers in src/api)
+COPY src/api/ /var/task/
 
-# copy your handler
-COPY lambda/app/ask_handler.py ${LAMBDA_TASK_ROOT}
-
-# env vars for the function
+# ---- runtime env (can be overridden in Lambda config) ----
 ENV CURRICULUM_BUCKET=edubot-mvp-147795258921-us-east-1-curriculum \
     BOOK_ID=philosophy \
     INDEX_PREFIX=indexes/philosophy/sections/ \
@@ -15,10 +16,5 @@ ENV CURRICULUM_BUCKET=edubot-mvp-147795258921-us-east-1-curriculum \
     MAX_SECTIONS=200 \
     VERSION=v0.2-sprint2
 
-# entrypoint: <module>.<function>
-
-# copy code
-COPY lambda/app/ask_handler.py /var/task
-
-# entrypoint: <module>.<function>
-CMD ["ask_handler.lambda_handler"]
+# Lambda entrypoint: module.function
+CMD ["handler.lambda_handler"]

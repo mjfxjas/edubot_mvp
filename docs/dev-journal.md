@@ -88,5 +88,7 @@ Commit: 4fa62a4
 - Uploaded seed textbooks:
   - philosophy/philosophy-textbook.pdf
   - history/history-textbook.pdf
+-Working Lambda function returning answers from indexed textbook, pdfplumber
 
 Commit: 
+

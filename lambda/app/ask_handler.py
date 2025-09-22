@@ -1,150 +1,180 @@
-import os, json, math, re, time, boto3
+# lambda/app/ask_handler.py
+import os
+import json
+import base64
+import boto3
 from urllib.parse import unquote_plus
 
-S3          = boto3.client("s3")
-BUCKET      = os.environ["CURRICULUM_BUCKET"]                 # e.g. edubot-mvp-...-curriculum
-BOOK_ID     = os.environ.get("BOOK_ID", "philosophy")         # default for dev
-INDEX_PREFIX= os.environ.get("INDEX_PREFIX", f"indexes/{BOOK_ID}/sections/")
-MAX_OBJS    = int(os.environ.get("MAX_SECTIONS", "200"))      # cap read cost/time
-TOP_K       = int(os.environ.get("TOP_K", "5"))
+# ---- Globals (init once per container) ----
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+CURRICULUM_BUCKET = os.environ["CURRICULUM_BUCKET"]
+INDEX_PREFIX = os.environ.get("INDEX_PREFIX", "indexes/philosophy/sections/")
+TOP_K = int(os.environ.get("TOP_K", "5"))
+BEDROCK_MODEL = os.environ.get("BEDROCK_MODEL", "anthropic.claude-3-haiku-20240307-v1:0")
 
-# ---------------- text utils ----------------
-TOKEN_RE = re.compile(r"[A-Za-z0-9']+")
-def tokenize(s: str):
-    return [t.lower() for t in TOKEN_RE.findall(s)]
+s3 = boto3.client("s3", region_name=AWS_REGION)
+brt = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 
-def bm25_score(query_tokens, doc_tokens, avgdl, k1=1.2, b=0.75):
-    # precompute tf and dl
-    tf = {}
-    for t in doc_tokens:
-        tf[t] = tf.get(t, 0) + 1
-    dl = len(doc_tokens)
-    # idf via query-only approx (no corpus DF); use pseudo-idf that favors matches
-    # If you later keep DF stats in toc.json, swap this for real idf.
-    scores = 0.0
-    for q in query_tokens:
-        f = tf.get(q, 0)
-        if f == 0:
-            continue
-        idf = 1.5  # constant “presence boost”
-        denom = f + k1 * (1 - b + b * (dl / (avgdl or 1)))
-        scores += idf * (f * (k1 + 1)) / (denom or 1)
-    return scores
+# ---- Utilities ----
+def ok(body: dict, code: int = 200):
+    return {"statusCode": code, "headers": {"Content-Type": "application/json"}, "body": json.dumps(body)}
 
-def best_excerpt(text: str, query_tokens, window_chars=320):
-    # return a short excerpt centered around first hit
-    text_lc = text.lower()
-    hit_pos = min([text_lc.find(q) for q in set(query_tokens) if q in text_lc] or [-1])
-    if hit_pos < 0:
-        return text[:window_chars].strip()
-    start = max(0, hit_pos - window_chars // 3)
-    end   = min(len(text), start + window_chars)
-    return text[start:end].strip()
+def bad_request(msg: str, code: int = 400):
+    return ok({"error": msg}, code)
 
-# ---------------- s3 helpers ----------------
-def list_section_keys(bucket: str, prefix: str, limit: int):
+def parse_event_body(event):
+    """API Gateway/Lambda Function URL compatible body parser."""
+    body = event.get("body", "")
+    if not body:
+        return {}
+    if event.get("isBase64Encoded"):
+        body = base64.b64decode(body).decode("utf-8")
+    # Some clients URL-encode; be forgiving
+    try:
+        if "%" in body:
+            body = unquote_plus(body)
+    except Exception:
+        pass
+    try:
+        return json.loads(body)
+    except Exception:
+        # last resort: raw string
+        return {"raw": body}
+
+def list_index_objects(prefix: str, limit: int = 500):
+    """List index jsons under S3 prefix (non-recursive)."""
     keys = []
-    continuation = None
+    kwargs = {"Bucket": CURRICULUM_BUCKET, "Prefix": prefix}
     while True:
-        kw = dict(Bucket=bucket, Prefix=prefix, MaxKeys=min(1000, limit - len(keys)))
-        if continuation:
-            kw["ContinuationToken"] = continuation
-        resp = S3.list_objects_v2(**kw)
-        for o in resp.get("Contents", []):
-            if o["Key"].endswith(".json"):
-                keys.append(o["Key"])
+        resp = s3.list_objects_v2(**kwargs)
+        for obj in resp.get("Contents", []):
+            if obj["Key"].endswith(".json"):
+                keys.append(obj["Key"])
                 if len(keys) >= limit:
                     return keys
-        if not resp.get("IsTruncated"):
+        token = resp.get("NextContinuationToken")
+        if not token:
             break
-        continuation = resp.get("NextContinuationToken")
+        kwargs["ContinuationToken"] = token
     return keys
 
-def get_json(bucket: str, key: str):
-    body = S3.get_object(Bucket=bucket, Key=key)["Body"].read()
-    return json.loads(body)
+def get_json(key: str):
+    obj = s3.get_object(Bucket=CURRICULUM_BUCKET, Key=key)
+    return json.loads(obj["Body"].read())
 
-# ---------------- handler ----------------
-def handler(event, context):
-    t0 = time.time()
-    try:
-        if event.get("httpMethod") == "GET" and event.get("path", "").endswith("/health"):
-            return _resp(200, {"ok": True, "version": os.environ.get("VERSION", "dev")})
+def retrieve_top_k(book_id: str, k: int):
+    """
+    Minimal retrieval: read json blobs under INDEX_PREFIX; each contains
+    fields like { "id", "text", "page_start", "page_end", ... } and possibly a stored score.
+    If no score stored, we’ll rank by a simple heuristic: longer chunks first.
+    """
+    prefix = INDEX_PREFIX
+    keys = list_index_objects(prefix, limit=2000)
+    items = []
+    for key in keys:
+        data = get_json(key)
+        text = data.get("text", "")
+        score = float(data.get("score", 0.0)) or float(len(text)) / 1000.0
+        items.append({
+            "s3_key": key,
+            "section_id": data.get("id") or data.get("section_id") or key.rsplit("/", 1)[-1].replace(".json",""),
+            "title": data.get("title") or "section",
+            "page_start": data.get("page_start"),
+            "page_end": data.get("page_end"),
+            "score": round(score, 3),
+            "text": text[:8000]  # safety cap per chunk
+        })
+    items.sort(key=lambda x: x["score"], reverse=True)
+    return items[:k]
 
-        body = event.get("body") or "{}"
-        if event.get("isBase64Encoded"):
-            import base64
-            body = base64.b64decode(body).decode("utf-8", errors="ignore")
-        payload = json.loads(body)
-        question = (payload.get("question") or "").strip()
-        book_id  = payload.get("book_id", BOOK_ID)
+# ---- Bedrock call ----
+def call_bedrock(prompt: str) -> str:
+    body = {
+        "anthropic_version": "bedrock-2023-05-31",
+        "max_tokens": 500,
+        "temperature": 0.2,
+        "messages": [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": prompt}]
+            }
+        ],
+    }
+    resp = brt.invoke_model(
+        modelId=BEDROCK_MODEL,
+        body=json.dumps(body),
+        accept="application/json",
+        contentType="application/json",
+    )
+    payload = json.loads(resp["body"].read())
+    # Anthropics on Bedrock returns: {"content":[{"type":"text","text":"..."}], ...}
+    parts = [c.get("text","") for c in payload.get("content", []) if c.get("type") == "text"]
+    return "".join(parts).strip()
+
+def build_prompt(question: str, contexts: list) -> str:
+    """Stitch TOP_K contexts into a grounded prompt."""
+    context_blocks = []
+    for i, c in enumerate(contexts, 1):
+        meta = f"{c.get('title','section')} (pp. {c.get('page_start')}–{c.get('page_end')})  [{c['s3_key']}]"
+        context_blocks.append(f"[{i}] {meta}\n{c['text']}\n")
+    context_text = "\n\n".join(context_blocks)[:120000]  # global cap
+
+    system_rules = (
+        "You are a helpful tutor. Answer ONLY using the provided textbook excerpts. "
+        "If the answer is not in the excerpts, say you don’t have enough information."
+    )
+    prompt = (
+        f"{system_rules}\n\n"
+        f"QUESTION:\n{question}\n\n"
+        f"TEXTBOOK EXCERPTS:\n{context_text}\n\n"
+        f"INSTRUCTIONS:\n"
+        f"- Cite the excerpt numbers you used like [1], [3].\n"
+        f"- Keep it concise (2-6 sentences).\n"
+    )
+    return prompt
+
+# ---- Router ----
+def lambda_handler(event, context):
+    method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method", "GET")
+    path = event.get("path") or event.get("rawPath") or "/"
+
+    if method == "GET" and path == "/health":
+        return ok({"ok": True, "version": os.environ.get("VERSION", "dev")})
+
+    if method == "POST" and path == "/ask":
+        body = parse_event_body(event)
+        question = (body.get("question") or "").strip()
+        book_id = (body.get("book_id") or "philosophy").strip()
 
         if not question:
-            return _resp(400, {"error": "Missing 'question'."})
+            return bad_request("Missing 'question' in body.")
 
-        prefix = f"indexes/{book_id}/sections/"
-        keys = list_section_keys(BUCKET, prefix, MAX_OBJS)
-        if not keys:
-            return _resp(404, {"error": f"No index sections under s3://{BUCKET}/{prefix}"})
+        # retrieve contexts
+        top_k = TOP_K
+        contexts = retrieve_top_k(book_id, top_k)
 
-        # load docs (cap for latency)
-        docs = []
-        total_tokens = 0
-        for k in keys:
-            j = get_json(BUCKET, k)
-            txt = (j.get("text") or "")[:8000]  # safety cutoff per section
-            toks = tokenize(txt)
-            docs.append((k, j, toks))
-            total_tokens += len(toks)
-        avgdl = (total_tokens / max(1, len(docs)))
+        # build prompt & call model
+        prompt = build_prompt(question, contexts)
+        answer = call_bedrock(prompt)
 
-        q_tokens = tokenize(question)
-        scored = []
-        for k, j, toks in docs:
-            score = bm25_score(q_tokens, toks, avgdl)
-            if score > 0:
-                scored.append((score, k, j, toks))
-        scored.sort(reverse=True, key=lambda x: x[0])
-        top = scored[:TOP_K] if scored else []
+        # prepare sources (no raw text)
+        sources = [
+            {
+                "s3_key": c["s3_key"],
+                "section_id": c["section_id"],
+                "title": c["title"],
+                "page_start": c.get("page_start"),
+                "page_end": c.get("page_end"),
+                "score": c["score"],
+            } for c in contexts
+        ]
 
-        # build answer
-        sources = []
-        answer_bits = []
-        for score, key, meta, toks in top:
-            excerpt = best_excerpt(meta["text"], q_tokens)
-            answer_bits.append(excerpt)
-            sources.append({
-                "s3_key": key,
-                "section_id": meta.get("section_id"),
-                "title": meta.get("title"),
-                "page_start": meta.get("page_start"),
-                "page_end": meta.get("page_end"),
-                "score": round(float(score), 3)
-            })
-
-        answer = "\n\n---\n\n".join(answer_bits[:3]) if answer_bits else \
-                 "I couldn’t find a relevant passage in the indexed sections."
-
-        latency_ms = int((time.time() - t0) * 1000)
-        out = {
+        return ok({
             "question": question,
             "book_id": book_id,
             "answer": answer,
             "sources": sources,
-            "latency_ms": latency_ms
-        }
-        return _resp(200, out)
+        })
 
-    except Exception as e:
-        # minimal error surface; logs go to CW
-        return _resp(500, {"error": str(e)})
-
-def _resp(code, obj):
-    return {
-        "statusCode": code,
-        "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(obj)
-    }
-
-# AWS entrypoint alias
-lambda_handler = handler
+    # default 404
+    return ok({"error": f"No route for {method} {path}"}, 404)

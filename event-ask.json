@@ -1,1 +1,2 @@
-{"httpMethod":"POST","path":"/ask","isBase64Encoded":false,"body":"{\"question\":\"What is philosophy?\",\"book_id\":\"philosophy\"}"}
+{"httpMethod":"POST","path":"/ask","isBase64Encoded":false,
+ "body":"{\"question\":\"What is philosophy?\",\"book_id\":\"philosophy\"}"}

@@ -1,0 +1,35 @@
+{
+  "family": "edubot-indexer",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "8192",
+  "executionRoleArn": "arn:aws:iam::147795258921:role/edubot-indexer-exec",
+  "taskRoleArn": "arn:aws:iam::147795258921:role/edubot-indexer-task",
+  "containerDefinitions": [
+    {
+      "name": "indexer",
+      "image": "147795258921.dkr.ecr.us-east-1.amazonaws.com/indexer:v0.2-sprint2",
+      "essential": true,
+      "command": ["python", "/var/task/entrypoint.py"],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/edubot-indexer",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "indexer"
+        }
+      },
+      "environment": [
+        {"name":"CURRICULUM_BUCKET","value":"edubot-mvp-147795258921-us-east-1-curriculum"},
+        {"name":"KMS_ALIAS","value":"alias/edubot-mvp-kms"},
+        {"name":"BOOK_ID","value":"philosophy"},
+        {"name":"SUBJECT","value":"philosophy"},
+        {"name":"S3_PDF_KEY","value":"philosophy/philosophy-textbook.pdf"},
+        {"name":"S3_INDEX_PREFIX","value":"indexes/philosophy"},
+        {"name":"PAGES_PER_BLOCK","value":"1"}
+      ]
+    }
+  ],
+  "ephemeralStorage": { "sizeInGiB": 21 }
+}
