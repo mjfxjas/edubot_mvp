@@ -81,3 +81,12 @@ Commit: e7477b6
 ![Cloudwatch Dashboard](screenshots/cloudwatch-dashboard.png)
 
 Commit: 4fa62a4
+
+## 2025-09-21
+- Created S3 bucket `edubot-mvp-147795258921-us-east-1-curriculum` (us-east-1)
+- Hardened bucket: public-block + default SSE-KMS (`alias/edubot-mvp-kms`)
+- Uploaded seed textbooks:
+  - philosophy/philosophy-textbook.pdf
+  - history/history-textbook.pdf
+
+Commit: 

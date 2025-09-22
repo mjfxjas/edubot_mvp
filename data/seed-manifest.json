@@ -1,0 +1,8 @@
+{
+  "bucket": "edubot-mvp-147795258921-us-east-1-curriculum",
+  "kms_key": "alias/edubot-mvp-kms",
+  "objects": [
+    {"subject":"philosophy","key":"philosophy/philosophy-textbook.pdf"},
+    {"subject":"history","key":"history/history-textbook.pdf"}
+  ]
+}
