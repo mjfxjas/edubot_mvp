@@ -5,6 +5,7 @@
 - Committed initial .gitkeep placeholders
 - Added screenshot documenting repo structure
 - Added dev-journal.md and documented process
+![Humble Beginnings](screenshots/humble-beginnings.png)
 
 Commit: 7927d5c
 
@@ -45,11 +46,33 @@ SPRINT 1 Complete: Infrastructure in place and verified working!
 
 Commit: cbcf0e9
 
+## 2025-09-21
 
-## Sprint 2 – Lambda API Skeleton (2025-09-21)
+## Sprint 2 – Lambda API Skeleton
 - Built Python Lambda container (3.12) with /health and /indexes
 - Pushed to ECR (v0.5, Docker schema v2 single-manifest)
 - Deployed Lambda in custom VPC (subnet subnet-057efaedf3ada76f0, SG sg-0b8487a7295172c71)
 - Attached AWSLambdaVPCAccessExecutionRole for ENI permissions
 - Created Function URL (IAM-only) and verified S3 access to indexes/
+
+Commit: cbcf0e9
+
+## 2025-09-21
+
+### Sprint 2 – Lambda API Skeleton (cont.)
+- Fixed Lambda CreateFunction errors (`CreateNetworkInterface` + ECR manifest issue) by:
+  - Granting execution role EC2 network interface permissions
+  - Rebuilding Docker image with `--platform linux/amd64` to produce Docker v2 manifest
+- Successfully deployed Lambda function `edubot-api-fn` from ECR
+- Verified health check (`/health`) and S3 index listing (`/indexes`) via `aws lambda invoke`
+- Configured and tested Lambda Function URL (IAM-only)
+- Built **local browser tester** (`signed.html`) for IAM-signed requests
+- Added **serve-creds.py/serve-creds.sh** utilities to expose STS creds locally for browser testing
+- Organized repo:
+  - Moved helper scripts into `tools/local/`
+  - Moved test artifacts (e.g., `signed.html`) into `tools/local/`
+- Captured screenshot of working `/indexes` call and IAM-signed test page for documentation
+![Lambda API tester](screenshots/lambda-test.png)
+
+Commit: e7477b6 
 
