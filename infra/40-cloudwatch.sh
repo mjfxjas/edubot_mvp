@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# CloudWatch dashboard + log retention for edubot-api-fn
+# idempotent; safe to re-run
+set -eo pipefail
 
-# Load project variables (PROJECT, REGION, ACCOUNT, etc.)
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=/dev/null
-. "$HERE/00-variables.sh"
+[ -f "$HERE/00-variables.sh" ] && . "$HERE/00-variables.sh"
 
-FN_NAME="edubot-api-fn"
-DASHBOARD_NAME="EduBot-MVP"
+# Allow missing vars; set sane defaults, then re-enable nounset
+set +u
+PROJECT="${PROJECT:-edubot-mvp}"
+REGION="${REGION:-us-east-1}"
+ACCOUNT="${ACCOUNT:-$(aws sts get-caller-identity --query Account --output text)}"
+FN_NAME="${FN_NAME:-edubot-api-fn}"
+DASHBOARD_NAME="${DASHBOARD_NAME:-EduBot-MVP}"
 LOG_GROUP="/aws/lambda/${FN_NAME}"
-RETENTION_DAYS=14
+RETENTION_DAYS="${RETENTION_DAYS:-14}"
+set -u
 
 echo "Project: $PROJECT"
 echo "Region:  $REGION"
@@ -17,17 +24,17 @@ echo "Account: $ACCOUNT"
 echo "Lambda:  $FN_NAME"
 echo
 
-# 1) Put/Update Dashboard
-cat > /tmp/dashboard.json <<'JSON'
+# 1) Dashboard JSON (uses $REGION/$FN_NAME injected below)
+cat > /tmp/dashboard.json <<JSON
 {
   "widgets": [
     {
       "type": "metric", "x": 0, "y": 0, "width": 12, "height": 6,
       "properties": {
         "title": "Lambda API Invocations & Errors",
-        "region": "us-east-1",
+        "region": "$REGION",
         "metrics": [
-          [ "AWS/Lambda", "Invocations", "FunctionName", "edubot-api-fn", { "stat": "Sum" } ],
+          [ "AWS/Lambda", "Invocations", "FunctionName", "$FN_NAME", { "stat": "Sum" } ],
           [ ".", "Errors", ".", ".", { "stat": "Sum", "yAxis": "right" } ]
         ],
         "view": "timeSeries",
@@ -39,9 +46,9 @@ cat > /tmp/dashboard.json <<'JSON'
       "type": "metric", "x": 0, "y": 6, "width": 12, "height": 6,
       "properties": {
         "title": "Lambda Duration (p95)",
-        "region": "us-east-1",
+        "region": "$REGION",
         "metrics": [
-          [ "AWS/Lambda", "Duration", "FunctionName", "edubot-api-fn", { "stat": "p95" } ]
+          [ "AWS/Lambda", "Duration", "FunctionName", "$FN_NAME", { "stat": "p95" } ]
         ],
         "view": "timeSeries",
         "stacked": false,

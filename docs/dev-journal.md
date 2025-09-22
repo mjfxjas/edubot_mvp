@@ -76,3 +76,7 @@ Commit: cbcf0e9
 
 Commit: e7477b6 
 
+## 2025-09-21
+- Created cloudwatch dashboard and set log retenion to 14 days, verified and screenshots
+
+Commit: 4fa62a4
