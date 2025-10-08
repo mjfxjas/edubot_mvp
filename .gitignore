@@ -23,3 +23,4 @@ health.json
 
 # Logs
 *.log
+env.json
