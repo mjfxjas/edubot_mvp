@@ -140,10 +140,17 @@ def _ask_with_bedrock(question, sections):
 def lambda_handler(event, context):
     request_id = context.aws_request_id if context else "local"
     log.info(f"Request {request_id} started")
-
+    
     try:
-        path = (event or {}).get("path") or (event or {}).get("rawPath") or "/"
-        method = (event or {}).get("httpMethod", "GET")
+        # Handle both API Gateway and Function URL formats
+        if "requestContext" in event and "http" in event["requestContext"]:
+            # Function URL format
+            path = event["requestContext"]["http"]["path"]
+            method = event["requestContext"]["http"]["method"]
+        else:
+            # API Gateway format
+            path = (event or {}).get("path") or (event or {}).get("rawPath") or "/"
+            method = (event or {}).get("httpMethod", "GET")
 
         # /health
         if path == "/health" and method == "GET":
