@@ -5,6 +5,7 @@ import time
 import logging
 from urllib.parse import unquote_plus
 import base64
+import requests
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -17,6 +18,7 @@ if not BUCKET:
 INDEX_PREFIX = os.environ.get("INDEX_PREFIX", "indexes/philosophy/sections/")
 TOP_K = int(os.environ.get("TOP_K", "5"))
 MODEL_ID = os.environ.get("BEDROCK_MODEL", "anthropic.claude-3-haiku-20240307-v1:0")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 # Reuse clients across invocations
@@ -89,6 +91,57 @@ def _top_sections(bucket, prefix, k):
         obj = s3.get_object(Bucket=bucket, Key=key)
         out.append(json.loads(obj["Body"].read()))
     return keys, out
+
+
+def _ask_with_gemini(question, sections):
+    """Use Gemini API for answer generation"""
+    if not GEMINI_API_KEY:
+        return "[No Gemini API key configured]"
+    
+    context = "\n\n---\n\n".join(
+        s.get("text") or s.get("content", "") or "" for s in sections
+    )[:30000]  # Gemini has larger context window
+
+    prompt = f"""Use only the provided curriculum excerpts to answer the question.
+
+Question: {question}
+
+Curriculum Excerpts:
+{context}
+
+Instructions:
+- Answer based ONLY on the provided excerpts
+- If the answer isn't in the excerpts, say you don't have enough information
+- Keep the answer concise (2-4 sentences)
+- Cite which excerpts you used
+
+Answer:"""
+
+    try:
+        response = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}",
+            headers={"Content-Type": "application/json"},
+            json={
+                "contents": [{
+                    "parts": [{"text": prompt}]
+                }],
+                "generationConfig": {
+                    "temperature": 0.2,
+                    "maxOutputTokens": 500
+                }
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if "candidates" in data and data["candidates"]:
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        return f"[Gemini API error: {response.status_code}]"
+        
+    except Exception as e:
+        return f"[Gemini error: {str(e)}]"
 
 
 def _ask_with_bedrock(question, sections):
@@ -175,7 +228,12 @@ def lambda_handler(event, context):
 
             # Load and process
             keys, sections = _top_sections(BUCKET, INDEX_PREFIX, TOP_K)
-            answer = _ask_with_bedrock(question, sections)
+            
+            # Use Gemini if API key available, otherwise Bedrock
+            if GEMINI_API_KEY:
+                answer = _ask_with_gemini(question, sections)
+            else:
+                answer = _ask_with_bedrock(question, sections)
 
             duration = int((time.time() - t_start) * 1000)
             log.info(f"Request {request_id} completed in {duration}ms")

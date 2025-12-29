@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduBot - AI Curriculum Assistant</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px; margin: 0 auto; padding: 20px;
+            background: #f8fafc; color: #334155;
+        }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h1 { color: #1e293b; margin-bottom: 8px; }
+        .subtitle { color: #64748b; margin-bottom: 30px; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 500; }
+        input, select, textarea { 
+            width: 100%; padding: 12px; border: 2px solid #e2e8f0; 
+            border-radius: 8px; font-size: 16px;
+        }
+        input:focus, select:focus, textarea:focus { 
+            outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        button { 
+            background: #3b82f6; color: white; border: none; padding: 12px 24px;
+            border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: 500;
+        }
+        button:hover { background: #2563eb; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        .response { 
+            margin-top: 20px; padding: 20px; background: #f1f5f9; 
+            border-radius: 8px; border-left: 4px solid #3b82f6;
+        }
+        .error { border-left-color: #ef4444; background: #fef2f2; }
+        .loading { text-align: center; color: #64748b; }
+        .sources { margin-top: 15px; font-size: 14px; color: #64748b; }
+        .source { background: #e2e8f0; padding: 4px 8px; border-radius: 4px; margin: 2px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 EduBot</h1>
+        <p class="subtitle">AI-powered curriculum assistant - Ask questions about your course materials</p>
+        
+        <div class="input-group">
+            <label for="question">Your Question:</label>
+            <textarea id="question" rows="3" placeholder="What is philosophy? How does Aristotle define virtue? What are the main branches of ethics?"></textarea>
+        </div>
+        
+        <div class="input-group">
+            <label for="bookId">Subject:</label>
+            <select id="bookId">
+                <option value="philosophy">Philosophy</option>
+                <option value="history">History</option>
+                <option value="literature">Literature</option>
+            </select>
+        </div>
+        
+        <button onclick="askQuestion()" id="askBtn">Ask EduBot</button>
+        
+        <div id="response" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://xbo335usp3gx5cklup5w3gtsky0iykgt.lambda-url.us-east-1.on.aws';
+        
+        async function askQuestion() {
+            const question = document.getElementById('question').value.trim();
+            const bookId = document.getElementById('bookId').value;
+            const responseDiv = document.getElementById('response');
+            const askBtn = document.getElementById('askBtn');
+            
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+            
+            // Show loading
+            askBtn.disabled = true;
+            askBtn.textContent = 'Thinking...';
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response loading';
+            responseDiv.innerHTML = '🤔 Searching curriculum and generating answer...';
+            
+            try {
+                const response = await fetch(`${API_URL}/ask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, book_id: bookId })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response';
+                    responseDiv.innerHTML = `
+                        <h3>Answer:</h3>
+                        <p>${data.answer}</p>
+                        <div class="sources">
+                            <strong>Sources:</strong> 
+                            ${data.sources.map(s => `<span class="source">${s.s3_key.split('/').pop().replace('.json', '')}</span>`).join('')}
+                            <br><small>Response time: ${data.duration_ms}ms</small>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            } finally {
+                askBtn.disabled = false;
+                askBtn.textContent = 'Ask EduBot';
+            }
+        }
+        
+        // Allow Enter key to submit
+        document.getElementById('question').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                askQuestion();
+            }
+        });
+        
+        // Test connection on load
+        window.onload = async function() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                if (data.ok) {
+                    console.log('✅ EduBot API connected');
+                }
+            } catch (error) {
+                console.log('❌ EduBot API connection failed:', error);
+            }
+        };
+    </script>
+</body>
+</html>
