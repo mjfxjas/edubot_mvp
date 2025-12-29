@@ -226,8 +226,11 @@ def lambda_handler(event, context):
             if not question:
                 return _ok({"error": "Invalid or missing question"}, 400)
 
+            # Build index prefix based on book_id
+            book_index_prefix = f"indexes/{book_id}/sections/"
+
             # Load and process
-            keys, sections = _top_sections(BUCKET, INDEX_PREFIX, TOP_K)
+            keys, sections = _top_sections(BUCKET, book_index_prefix, TOP_K)
             
             # Use Gemini if API key available, otherwise Bedrock
             if GEMINI_API_KEY:
