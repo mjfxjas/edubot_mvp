@@ -132,9 +132,11 @@ Push to main branch triggers:
 
 ## Documentation
 
+- **[Cost Analysis](docs/COSTS.md)** - Detailed cost breakdown and ROI
 - [API Documentation](docs/API.md)
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [Security Considerations](SECURITY.md)
+- [Development Journal](docs/dev-journal.md)
 
 ## Current Books
 
