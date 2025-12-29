@@ -24,7 +24,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install boto3 pytest flake8
+        pip install boto3 pytest flake8 requests
         # Skip optional indexer deps that may cause issues
         echo "Core dependencies installed"
     
