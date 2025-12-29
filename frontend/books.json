@@ -1,0 +1,31 @@
+{
+  "books": [
+    {
+      "id": "philosophy",
+      "title": "Introduction to Philosophy",
+      "author": "Nathan Smith",
+      "publisher": "OpenStax",
+      "cover": "https://d3bxy9euw4e147.cloudfront.net/oscms-prodcms/media/documents/IntroductionToPhilosophy-WEB.jpg",
+      "description": "Explore fundamental questions about existence, knowledge, values, reason, mind, and language.",
+      "subjects": ["Philosophy", "Ethics", "Metaphysics"]
+    },
+    {
+      "id": "history",
+      "title": "U.S. History",
+      "author": "P. Scott Corbett",
+      "publisher": "OpenStax",
+      "cover": "https://d3bxy9euw4e147.cloudfront.net/oscms-prodcms/media/documents/USHistory-WEB.jpg",
+      "description": "Comprehensive survey of American history from pre-Columbian era to present.",
+      "subjects": ["History", "American History"]
+    },
+    {
+      "id": "literature",
+      "title": "Introduction to Literature",
+      "author": "Various Authors",
+      "publisher": "OpenStax",
+      "cover": "https://via.placeholder.com/300x400/4A90E2/ffffff?text=Literature",
+      "description": "Study of literary works including poetry, fiction, and drama.",
+      "subjects": ["Literature", "English", "Writing"]
+    }
+  ]
+}
