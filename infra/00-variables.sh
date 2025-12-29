@@ -1,9 +1,10 @@
 #!/bin/bash
+set -euo pipefail
 
 # ===== Project Variables =====
 PROJECT_NAME="edubot-mvp"
-AWS_REGION="us-east-1"
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION="${AWS_REGION:-us-east-1}"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || { echo "Error: AWS CLI not configured"; exit 1; })
 
 # ===== Resource Names =====
 S3_BUCKET="${PROJECT_NAME}-private-bucket-${ACCOUNT_ID}"

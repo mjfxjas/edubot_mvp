@@ -8,9 +8,8 @@ RUN python -m pip install -r requirements.txt -t /opt/python
 # Copy your app code (handler + any helpers in src/api)
 COPY src/api/ /var/task/
 
-# ---- runtime env (can be overridden in Lambda config) ----
-ENV CURRICULUM_BUCKET=edubot-mvp-147795258921-us-east-1-curriculum \
-    BOOK_ID=philosophy \
+# ---- runtime env (override in Lambda config) ----
+ENV BOOK_ID=philosophy \
     INDEX_PREFIX=indexes/philosophy/sections/ \
     TOP_K=5 \
     MAX_SECTIONS=200 \

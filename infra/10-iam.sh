@@ -6,7 +6,7 @@ PROJECT="${PROJECT:-edubot}"
 REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
 BUCKET="${BUCKET:-edubot-corpus}"                # change if yours differs
-KMS_KEY_ARN="${KMS_KEY_ARN:-arn:aws:kms:${REGION}:${ACCOUNT}:key/REPLACE-WITH-YOUR-KEY-ID}"
+KMS_KEY_ARN="${KMS_KEY_ARN:-arn:aws:kms:${REGION}:${ACCOUNT}:alias/edubot-mvp-kms}"
 
 POLICY_DIR="${POLICY_DIR:-policies}"
 mkdir -p "${POLICY_DIR}"
@@ -95,9 +95,21 @@ cat > "$APP_PERMS" <<JSON
       "Resource": "${KMS_KEY_ARN}"
     },
     {
+      "Sid": "BedrockInvoke",
+      "Effect": "Allow",
+      "Action": ["bedrock:InvokeModel","bedrock:InvokeModelWithResponseStream","bedrock:ListFoundationModels"],
+      "Resource": "*"
+    },
+    {
       "Sid": "Logs",
       "Effect": "Allow",
       "Action": ["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "VpcAccess",
+      "Effect": "Allow",
+      "Action": ["ec2:CreateNetworkInterface","ec2:DescribeNetworkInterfaces","ec2:DeleteNetworkInterface"],
       "Resource": "*"
     }
   ]

@@ -1,27 +1,73 @@
 import json, os, boto3, time, logging
+from urllib.parse import unquote_plus
+import base64
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
-BUCKET = os.environ.get("CURRICULUM_BUCKET") or os.environ.get("BUCKET", "")
+# Environment validation
+BUCKET = os.environ.get("CURRICULUM_BUCKET")
+if not BUCKET:
+    raise ValueError("CURRICULUM_BUCKET environment variable required")
+
 INDEX_PREFIX = os.environ.get("INDEX_PREFIX", "indexes/philosophy/sections/")
 TOP_K = int(os.environ.get("TOP_K", "5"))
 MODEL_ID = os.environ.get("BEDROCK_MODEL", "anthropic.claude-3-haiku-20240307-v1:0")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
+# Reuse clients across invocations
 s3 = boto3.client("s3")
 brt = boto3.client("bedrock-runtime", region_name=AWS_REGION)
+
+def _parse_body(event):
+    """Parse request body with proper validation"""
+    body = event.get("body", "")
+    if not body:
+        return {}
+    
+    if event.get("isBase64Encoded"):
+        body = base64.b64decode(body).decode("utf-8")
+    
+    try:
+        if "%" in body:
+            body = unquote_plus(body)
+    except Exception:
+        pass
+        
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        return {"raw": body}
+
+def _validate_question(question):
+    """Validate and sanitize question input"""
+    if not question or not question.strip():
+        return None
+    
+    question = question.strip()[:1000]  # Limit length
+    if len(question) < 3:
+        return None
+        
+    return question
 
 def _ok(body, code=200):
     return {"statusCode": code,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps(body)}
 
-def _timed(label):
-    t0 = time.time()
-    def done():
-        log.info(f"{label} took {int((time.time()-t0)*1000)} ms")
-    return done
+def _health_check():
+    """Health check with dependency validation"""
+    try:
+        # Test S3 connectivity
+        s3.head_bucket(Bucket=BUCKET)
+        
+        # Test Bedrock connectivity  
+        brt.list_foundation_models()
+        
+        return {"ok": True, "version": os.environ.get("VERSION", "dev"), "dependencies": "healthy"}
+    except Exception as e:
+        log.error(f"Health check failed: {e}")
+        return {"ok": False, "error": "dependency_failure"}
 
 def _top_sections(bucket, prefix, k):
     # naive: list first K section files under prefix and fetch them
@@ -63,57 +109,51 @@ def _ask_with_bedrock(question, sections):
     return "".join(p.get("text","") for p in body.get("content", []))
 
 def lambda_handler(event, context):
-    path = (event or {}).get("path") or (event or {}).get("rawPath") or "/"
-    method = (event or {}).get("httpMethod","GET")
+    request_id = context.aws_request_id if context else "local"
+    log.info(f"Request {request_id} started")
+    
+    try:
+        path = (event or {}).get("path") or (event or {}).get("rawPath") or "/"
+        method = (event or {}).get("httpMethod","GET")
 
-    # /health
-    if path == "/health" and method == "GET":
-        return _ok({"ok": True})
+        # /health
+        if path == "/health" and method == "GET":
+            return _ok(_health_check())
 
-    # /indexes (your existing S3 list)
-    if path == "/indexes" and method == "GET":
-        if not BUCKET:
-            return _ok({"error": "BUCKET env var not set"}, 500)
-        resp = s3.list_objects_v2(Bucket=BUCKET, Prefix="indexes/", MaxKeys=100)
-        keys = [o["Key"] for o in resp.get("Contents", [])]
-        return _ok({"bucket": BUCKET, "prefix": "indexes/", "count": len(keys), "keys": keys})
+        # /indexes
+        if path == "/indexes" and method == "GET":
+            resp = s3.list_objects_v2(Bucket=BUCKET, Prefix="indexes/", MaxKeys=100)
+            keys = [o["Key"] for o in resp.get("Contents", [])]
+            return _ok({"bucket": BUCKET, "prefix": "indexes/", "count": len(keys), "keys": keys})
 
-    # /ask
-    if path == "/ask" and method == "POST":
-        t_all = time.time()
+        # /ask
+        if path == "/ask" and method == "POST":
+            t_start = time.time()
+            
+            body = _parse_body(event)
+            question = _validate_question(body.get("question", ""))
+            book_id = body.get("book_id", "philosophy")
+            
+            if not question:
+                return _ok({"error": "Invalid or missing question"}, 400)
 
-        # parse
-        t = _timed("parse_event")
-        body = event.get("body") or "{}"
-        if isinstance(body, str):
-            body = json.loads(body)
-        question = body.get("question","").strip()
-        book_id  = body.get("book_id","philosophy")
-        t()
+            # Load and process
+            keys, sections = _top_sections(BUCKET, INDEX_PREFIX, TOP_K)
+            answer = _ask_with_bedrock(question, sections)
+            
+            duration = int((time.time() - t_start) * 1000)
+            log.info(f"Request {request_id} completed in {duration}ms")
+            
+            return _ok({
+                "question": question,
+                "book_id": book_id,
+                "answer": answer,
+                "sources": [{"s3_key": k} for k in keys],
+                "duration_ms": duration
+            })
 
-        if not question:
-            return _ok({"error":"missing 'question'"}, 400)
-        if not BUCKET:
-            return _ok({"error":"CURRICULUM_BUCKET not set"}, 500)
-
-        # load sections
-        t = _timed("load_top_sections")
-        keys, sections = _top_sections(BUCKET, INDEX_PREFIX, TOP_K)
-        t()
-
-        # bedrock
-        t = _timed("bedrock_invoke")
-        answer = _ask_with_bedrock(question, sections)
-        t()
-
-        # format
-        log.info(f"TOTAL took {int((time.time()-t_all)*1000)} ms")
-        return _ok({
-            "question": question,
-            "book_id": book_id,
-            "answer": answer,
-            "sources": [{"s3_key": k} for k in keys],
-        })
-
-    # default
-    return _ok({"message": "Use /health, /indexes or /ask"}, 200)
+        return _ok({"message": "Use /health, /indexes or /ask"}, 404)
+        
+    except Exception as e:
+        log.error(f"Request {request_id} failed: {e}")
+        return _ok({"error": "Internal server error"}, 500)

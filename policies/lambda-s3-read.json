@@ -4,12 +4,12 @@
     {
       "Effect": "Allow",
       "Action": ["s3:ListBucket"],
-      "Resource": "arn:aws:s3:::edubot-mvp-147795258921-us-east-1-curriculum"
+      "Resource": "arn:aws:s3:::${CURRICULUM_BUCKET}"
     },
     {
       "Effect": "Allow",
       "Action": ["s3:GetObject"],
-      "Resource": "arn:aws:s3:::edubot-mvp-147795258921-us-east-1-curriculum/indexes/*"
+      "Resource": "arn:aws:s3:::${CURRICULUM_BUCKET}/indexes/*"
     }
   ]
 }

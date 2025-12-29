@@ -1,18 +1,29 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
 .venv/
+venv/
+.pytest_cache/
 
 # macOS
 .DS_Store
 
+# Environment files
+.env
+*.env
+.env.*
+
 # AWS/infra outputs
 *.tfstate
 *.tfstate.backup
+.terraform/
 
 # Generated data
 indexes/
 data/
+raw/
+processed/
 
 # Lambda invocation outputs
 ask.json
@@ -24,3 +35,30 @@ health.json
 # Logs
 *.log
 env.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Docker
+.dockerignore
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+Thumbs.db
+
+# Generated policies with account-specific ARNs
+policies/policy-*.json
+policies/indexer-*.json
+assume-*.json
+ecs-*.json
