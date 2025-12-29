@@ -92,3 +92,39 @@ Commit: 4fa62a4
 
 Commit: 
 
+
+## 2025-12-29
+
+### Frontend & UX Improvements
+- Added EduBot logo to frontend and README
+- Created book thumbnails from PDF page 1 for all 3 books
+- Built collapsible "Why EduBot?" explainer section
+- Updated books.json with Philosophy and both World History volumes
+- Improved frontend layout with larger logo and better spacing
+
+### Content Expansion
+- Processed and uploaded World History Volume 2 (241 sections)
+- Now have 3 complete books indexed:
+  - Introduction to Philosophy
+  - World History Volume 1 (Prehistory to 1500 CE)
+  - World History Volume 2 (1400 CE to Present)
+
+### Backend Improvements
+- Increased TOP_K from 5 to 20 for better section coverage
+- Added keyword-based scoring to prioritize relevant sections
+- Implemented Bedrock fallback for Gemini rate limits (429 errors)
+- Removed KMS encryption from indexer S3 uploads (compatibility fix)
+
+### Known Issues Identified
+- Retrieval still naive (alphabetical, not semantic)
+- Docker image deployment has manifest compatibility issues
+- Gemini free tier limits: 15 req/min, 1500/day
+- Code changes committed but not deployed (Docker build issues)
+
+### Next Steps
+- Fix Docker image deployment for Lambda
+- Implement semantic search with embeddings
+- Add vector database for similarity search
+- Consider caching layer to reduce costs
+
+Commit: e629ec6
