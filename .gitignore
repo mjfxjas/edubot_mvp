@@ -62,3 +62,5 @@ policies/policy-*.json
 policies/indexer-*.json
 assume-*.json
 ecs-*.json
+*.tar.gz
+*.zip
