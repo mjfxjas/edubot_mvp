@@ -1,82 +1,134 @@
-# EduBot MVP
+# EduBot
 
-## EduBot is a serverless AI assistant designed to run inside a private AWS VPC. It uses Amazon Bedrock with retrieval-augmented generation (RAG) to answer questions based only on a school’s own curriculum and textbooks.
+**A serverless AI-powered Q&A system for educational institutions**
 
-### This project was built as a hands-on AWS Solutions Architect Associate (SAA) portfolio lab, covering Lambda (container images), S3, IAM, CloudWatch, and VPC integration.
-
+EduBot provides curriculum-specific answers using retrieval-augmented generation (RAG) with Amazon Bedrock. Students ask questions and receive answers based exclusively on their school's textbooks and course materials.
 
 ## Features
 
-- **Serverless API**  
-  Python API packaged into AWS Lambda (container image).
+- **Curriculum-Based Answers**: Responses drawn only from uploaded course materials
+- **Serverless Architecture**: AWS Lambda with container deployment
+- **Secure & Private**: All data stays within your AWS account
+- **RAG Pipeline**: Intelligent document retrieval + AI generation
+- **Production Ready**: CI/CD, monitoring, error handling, and tests
 
-- **Private Q&A**  
-  Students can ask questions. Answers are retrieved from school-specific documents (indexes stored in S3).
+## Architecture
 
-- **Indexing Pipeline**  
-  Local/ECS tool for chunking + embedding curriculum data into per-section JSON indexes.
+- **API**: Python Lambda function with REST endpoints
+- **Storage**: S3 for curriculum documents and processed indexes
+- **AI**: Amazon Bedrock (Claude Haiku) for answer generation
+- **Security**: IAM roles, VPC isolation, KMS encryption
+- **Monitoring**: CloudWatch metrics and custom dashboards
+- **Deployment**: GitHub Actions CI/CD pipeline
 
-- **Secure Storage**  
-  Buckets and IAM policies restrict access to curriculum and indexes.
+## Quick Start
 
-- **Monitoring**  
-  CloudWatch dashboard shows API health, invocation counts, errors, and latency.
+### Prerequisites
+- AWS CLI configured
+- Docker installed
+- Python 3.12+
 
-## Architecture 
+### 1. Deploy Infrastructure
+```bash
+git clone https://github.com/YOUR_USERNAME/edubot_mvp.git
+cd edubot_mvp
 
-- **Compute:** AWS Lambda (container image built with Docker, pushed to ECR).  
-- **Storage:** S3 for curriculum + index data.  
-- **Networking:** VPC with subnets & security groups.  
-- **IAM:** Minimal-scope roles for Lambda + S3 access.  
-- **Monitoring:** CloudWatch metrics + custom dashboard.  
+# Set up AWS resources
+source infra/00-variables.sh
+./infra/10-kms-and-s3.sh
+./infra/10-iam.sh
+./infra/60-lambda-api.sh
+```
 
-## Quickstart (Local Dev)
+### 2. Upload Curriculum
+```bash
+# Process and upload textbooks
+python tools/indexer.py \
+  --pdf /path/to/textbook.pdf \
+  --book-id philosophy \
+  --subject philosophy \
+  --s3-bucket $CURRICULUM_BUCKET
+```
 
-# Pre-reqs: Docker, AWS CLI configured, Python 3.12
-# clone repo
+### 3. Test the API
+```bash
+# Health check
+curl https://your-lambda-url/health
 
-```git clone https://github.com/YOURNAME/edubot_mvp.git```  
-```cd edubot_mvp```  
+# Ask a question
+curl -X POST https://your-lambda-url/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is philosophy?", "book_id": "philosophy"}'
+```
 
-# build + push Lambda image
-```docker buildx build --platform linux/amd64 \```  
-```-f src/api/Dockerfile \```  
-```-t $IMAGE_URI --push .```  
+## API Endpoints
 
-# update Lambda with new image
-```aws lambda update-function-code \```  
-```--function-name edubot-api-fn \```  
-```--image-uri "$IMAGE_URI"```  
+- `GET /health` - System health and dependency status
+- `GET /indexes` - List available curriculum indexes
+- `POST /ask` - Ask questions based on curriculum
 
-# test health endpoint
-```cat > event-health.json <<'JSON'```  
-```{"httpMethod":"GET","path":"/health","isBase64Encoded":false}```  
-```JSON```    
+## Development
 
-```aws lambda invoke --function-name edubot-api-fn \```  
-```--payload fileb://event-health.json health.json \```  
-```&& cat health.json | jq```  
+### Local Testing
+```bash
+# Set environment
+export CURRICULUM_BUCKET=your-bucket-name
 
-## CloudWatch Dashboard
-Custom dashboard: EduBot-MVP  
-•	Lambda invocations & errors  
-•	Latency (p95)  
-•	Topology map of service connections  
-•	Logs for request/response inspection
-## Security Considerations
-•	All curriculum stored in private S3 buckets
-•	Access limited via IAM role → Lambda only  
-•	Runs inside VPC subnets for isolation  
-•	No data leaves AWS account  
+# Run tests
+python run_tests.py
 
-## Roadmap
-•	Add API Gateway for HTTPS access
-•	ECS/Fargate job for indexer.py (currently local)  
-•	Integrate Bedrock foundation models for answer synthesis  
-•	Terraform/CDK rewrite (infra as code)  
-•	Add unit tests & CI/CD pipeline  
+# Test locally with mock mode
+MOCK_BEDROCK=true python -c "
+import sys; sys.path.append('src/api')
+import handler, json
+event = {'httpMethod': 'POST', 'path': '/ask', 'body': json.dumps({'question': 'test'})}
+print(handler.lambda_handler(event, None))
+"
+```
 
-# About
-•	Built by: Jonathan Schimpf  
-•	Purpose: Hands-on AWS learning for SAA exam + portfolio  
-•	Status: MVP working, expanding  
+### CI/CD Pipeline
+Push to main branch triggers:
+1. Automated testing
+2. Code quality checks
+3. Docker build and ECR push
+4. Lambda function update
+
+## Configuration
+
+### Environment Variables
+- `CURRICULUM_BUCKET` - S3 bucket for curriculum data
+- `INDEX_PREFIX` - S3 prefix for processed indexes
+- `TOP_K` - Number of sections to retrieve (default: 5)
+- `BEDROCK_MODEL` - AI model ID (default: claude-3-haiku)
+- `MOCK_BEDROCK` - Enable mock mode for development
+
+### Security
+- All curriculum data encrypted with KMS
+- IAM roles with minimal required permissions
+- VPC isolation for Lambda function
+- No data leaves your AWS account
+
+## Monitoring
+
+- CloudWatch metrics for invocations, errors, and latency
+- Custom dashboard for system health
+- Structured logging with request tracking
+- Automated alerts for error rates and performance
+
+## Production Considerations
+
+- **Scaling**: Lambda auto-scales based on demand
+- **Cost**: Pay-per-request pricing model
+- **Reliability**: Multi-AZ deployment with AWS managed services
+- **Backup**: S3 versioning and cross-region replication
+- **Updates**: Blue/green deployments via CI/CD pipeline
+
+## Documentation
+
+- [API Documentation](docs/API.md)
+- [Deployment Guide](docs/DEPLOYMENT.md)
+- [Security Considerations](SECURITY.md)
+
+## License
+
+MIT License - see LICENSE file for details.
