@@ -7,9 +7,11 @@ EduBot provides curriculum-specific answers using retrieval-augmented generation
 ## Features
 
 - **Curriculum-Based Answers**: Responses drawn only from uploaded course materials
+- **Dual AI Backend**: Gemini (free tier) with Bedrock fallback
 - **Serverless Architecture**: AWS Lambda with container deployment
+- **Modern Frontend**: Clean UI with book selection and collapsible explainer
 - **Secure & Private**: All data stays within your AWS account
-- **RAG Pipeline**: Intelligent document retrieval + AI generation
+- **RAG Pipeline**: Keyword-scored retrieval + AI generation
 - **Production Ready**: CI/CD, monitoring, error handling, and tests
 
 ## Architecture
@@ -98,8 +100,9 @@ Push to main branch triggers:
 ### Environment Variables
 - `CURRICULUM_BUCKET` - S3 bucket for curriculum data
 - `INDEX_PREFIX` - S3 prefix for processed indexes
-- `TOP_K` - Number of sections to retrieve (default: 5)
+- `TOP_K` - Number of sections to retrieve (default: 20)
 - `BEDROCK_MODEL` - AI model ID (default: claude-3-haiku)
+- `GEMINI_API_KEY` - Google Gemini API key (optional, free tier)
 - `MOCK_BEDROCK` - Enable mock mode for development
 
 ### Security
@@ -128,6 +131,37 @@ Push to main branch triggers:
 - [API Documentation](docs/API.md)
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [Security Considerations](SECURITY.md)
+
+## Current Books
+
+- **Introduction to Philosophy** - OpenStax
+- **World History Volume 1** - Prehistory to 1500 CE
+- **World History Volume 2** - 1400 CE to Present
+
+## TODO / Future Improvements
+
+### High Priority
+- [ ] **Semantic Search**: Replace keyword scoring with proper embeddings (OpenAI/Bedrock)
+- [ ] **Vector Database**: Add Pinecone/FAISS for true similarity search
+- [ ] **Docker Build Fix**: Resolve Lambda image deployment issues for easier updates
+
+### Medium Priority
+- [ ] **User Authentication**: Add Cognito for student/teacher accounts
+- [ ] **Usage Analytics**: Track popular questions and book usage
+- [ ] **Answer Quality**: Add citation links to specific page numbers
+- [ ] **Multi-Book Search**: Allow searching across multiple books simultaneously
+
+### Nice to Have
+- [ ] **Chat History**: Store conversation context for follow-up questions
+- [ ] **Admin Dashboard**: Upload books and manage content via UI
+- [ ] **Mobile App**: React Native wrapper for iOS/Android
+- [ ] **Study Tools**: Flashcards, quizzes generated from curriculum
+
+### Known Issues
+- Retrieval is keyword-based (not semantic) - may miss relevant sections
+- Gemini free tier rate limits (15 req/min) - auto-falls back to Bedrock
+- Docker image deployment requires manual steps - CI/CD needs fixing
+- No caching - every question hits S3 and AI (could add Redis/ElastiCache)
 
 ## License
 
