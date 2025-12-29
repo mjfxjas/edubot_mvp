@@ -123,7 +123,7 @@ def _ask_with_gemini(question, sections):
     
     context = "\n\n---\n\n".join(
         s.get("text") or s.get("content", "") or "" for s in sections
-    )[:30000]  # Gemini has larger context window
+    )[:30000]
 
     prompt = f"""Use only the provided curriculum excerpts to answer the question.
 
@@ -161,10 +161,15 @@ Answer:"""
             if "candidates" in data and data["candidates"]:
                 return data["candidates"][0]["content"]["parts"][0]["text"]
         
+        if response.status_code == 429:
+            log.warning("Gemini rate limit hit, falling back to Bedrock")
+            return None  # Signal to use Bedrock fallback
+        
         return f"[Gemini API error: {response.status_code}]"
         
     except Exception as e:
-        return f"[Gemini error: {str(e)}]"
+        log.warning(f"Gemini error: {e}, falling back to Bedrock")
+        return None  # Signal to use Bedrock fallback
 
 
 def _ask_with_bedrock(question, sections):
@@ -258,6 +263,9 @@ def lambda_handler(event, context):
             # Use Gemini if API key available, otherwise Bedrock
             if GEMINI_API_KEY:
                 answer = _ask_with_gemini(question, sections)
+                # Fallback to Bedrock if Gemini rate limited
+                if answer is None:
+                    answer = _ask_with_bedrock(question, sections)
             else:
                 answer = _ask_with_bedrock(question, sections)
 
