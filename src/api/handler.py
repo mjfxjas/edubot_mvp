@@ -16,7 +16,7 @@ if not BUCKET:
     raise ValueError("CURRICULUM_BUCKET environment variable required")
 
 INDEX_PREFIX = os.environ.get("INDEX_PREFIX", "indexes/philosophy/sections/")
-TOP_K = int(os.environ.get("TOP_K", "5"))
+TOP_K = int(os.environ.get("TOP_K", "20"))
 MODEL_ID = os.environ.get("BEDROCK_MODEL", "anthropic.claude-3-haiku-20240307-v1:0")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
@@ -82,15 +82,38 @@ def _health_check():
         return {"ok": True, "version": os.environ.get("VERSION", "dev"), "dependencies": "partial"}
 
 
-def _top_sections(bucket, prefix, k):
-    # naive: list first K section files under prefix and fetch them
-    resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=k)
-    keys = [o["Key"] for o in resp.get("Contents", [])][:k]
-    out = []
+def _top_sections(bucket, prefix, k, question=""):
+    # Get more sections initially for better coverage
+    resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=k*3)
+    keys = [o["Key"] for o in resp.get("Contents", [])]
+    
+    # Fetch all sections
+    all_sections = []
     for key in keys:
-        obj = s3.get_object(Bucket=bucket, Key=key)
-        out.append(json.loads(obj["Body"].read()))
-    return keys, out
+        try:
+            obj = s3.get_object(Bucket=bucket, Key=key)
+            section = json.loads(obj["Body"].read())
+            all_sections.append((key, section))
+        except Exception:
+            continue
+    
+    # Simple keyword scoring if question provided
+    if question:
+        keywords = set(question.lower().split())
+        scored = []
+        for key, section in all_sections:
+            text = (section.get("text") or "").lower()
+            score = sum(1 for kw in keywords if kw in text and len(kw) > 3)
+            scored.append((score, key, section))
+        scored.sort(reverse=True)
+        # Take top k by score, but ensure we get at least some early sections
+        top_scored = scored[:k-2] if len(scored) > k else scored
+        early_sections = [(0, k, s) for k, s in all_sections[:2]]
+        combined = early_sections + top_scored
+        return [k for _, k, _ in combined[:k]], [s for _, _, s in combined[:k]]
+    
+    # Fallback: just return first k
+    return keys[:k], [s for _, s in all_sections[:k]]
 
 
 def _ask_with_gemini(question, sections):
@@ -230,7 +253,7 @@ def lambda_handler(event, context):
             book_index_prefix = f"indexes/{book_id}/sections/"
 
             # Load and process
-            keys, sections = _top_sections(BUCKET, book_index_prefix, TOP_K)
+            keys, sections = _top_sections(BUCKET, book_index_prefix, TOP_K, question)
             
             # Use Gemini if API key available, otherwise Bedrock
             if GEMINI_API_KEY:
