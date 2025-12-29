@@ -61,8 +61,38 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎓 EduBot</h1>
-        <p class="subtitle">AI-powered curriculum assistant - Ask questions about your course materials</p>
+        <div style="display: flex; gap: 30px; align-items: center; margin-bottom: 30px;">
+            <img src="logo.png" alt="EduBot" style="width: 200px; height: auto; flex-shrink: 0;">
+            <div style="flex: 1;">
+                <h1 style="margin: 0 0 5px 0;">EduBot</h1>
+                <p style="margin: 0; color: #64748b; font-size: 18px;">AI Tutor for Your Curriculum</p>
+            </div>
+        </div>
+        
+        <details style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #3b82f6; cursor: pointer;">
+            <summary style="font-weight: 600; color: #1e293b; font-size: 16px; list-style: none; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 20px;">▶</span> Why EduBot? (Click to expand)
+            </summary>
+            <div style="margin-top: 15px;">
+                <h3 style="margin-top: 0; color: #1e293b;">Answers from YOUR textbooks only. Nothing else.</h3>
+                <p style="margin-bottom: 15px; color: #475569;">Unlike ChatGPT or other AI tools that pull from the entire internet, EduBot only uses your school's approved curriculum. Every answer comes directly from the textbooks your teachers assigned—ensuring you're studying the right material for your exams.</p>
+                
+                <h4 style="color: #1e293b; margin-bottom: 10px;">Why This Matters</h4>
+                <ul style="color: #475569; margin: 0 0 15px 20px;">
+                    <li><strong>No Off-Topic Information</strong>: Only content from your actual course materials</li>
+                    <li><strong>Exam-Aligned</strong>: Study what your teachers are testing you on</li>
+                    <li><strong>Trustworthy Sources</strong>: Every answer cites the exact textbook sections used</li>
+                    <li><strong>School-Approved Content</strong>: Your institution controls what books are available</li>
+                </ul>
+                
+                <p style="margin: 0; color: #475569; font-size: 14px;">Available 24/7, no office hours needed. Ask as many questions as you want.</p>
+            </div>
+        </details>
+        
+        <style>
+            details[open] summary span { transform: rotate(90deg); display: inline-block; }
+            summary::-webkit-details-marker { display: none; }
+        </style>
         
         <h2>Select a Book:</h2>
         <div class="book-selector" id="bookSelector"></div>

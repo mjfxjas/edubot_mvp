@@ -78,11 +78,7 @@ def upload_dir_to_s3(local_dir: pathlib.Path, bucket: str, prefix: str, kms_alia
             full = pathlib.Path(root) / name
             rel = full.relative_to(local_dir)
             key = f"{prefix.rstrip('/')}/{rel.as_posix()}"
-            extra = {
-                "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": kms_alias
-            }
-            s3.upload_file(str(full), bucket, key, ExtraArgs=extra)
+            s3.upload_file(str(full), bucket, key)
             print(f"Uploaded: s3://{bucket}/{key}")
 
 def main():

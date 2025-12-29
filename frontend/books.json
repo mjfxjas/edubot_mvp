@@ -5,27 +5,27 @@
       "title": "Introduction to Philosophy",
       "author": "Nathan Smith",
       "publisher": "OpenStax",
-      "cover": "https://d3bxy9euw4e147.cloudfront.net/oscms-prodcms/media/documents/IntroductionToPhilosophy-WEB.jpg",
+      "cover": "thumbnails/philosophy.jpg",
       "description": "Explore fundamental questions about existence, knowledge, values, reason, mind, and language.",
       "subjects": ["Philosophy", "Ethics", "Metaphysics"]
     },
     {
       "id": "history",
-      "title": "U.S. History",
-      "author": "P. Scott Corbett",
+      "title": "World History Volume 1",
+      "author": "Ann Kordas et al.",
       "publisher": "OpenStax",
-      "cover": "https://d3bxy9euw4e147.cloudfront.net/oscms-prodcms/media/documents/USHistory-WEB.jpg",
-      "description": "Comprehensive survey of American history from pre-Columbian era to present.",
-      "subjects": ["History", "American History"]
+      "cover": "thumbnails/world-history-vol1.jpg",
+      "description": "From prehistory to 1500 CE: ancient civilizations, classical empires, and medieval societies.",
+      "subjects": ["History", "World History", "Ancient History"]
     },
     {
-      "id": "literature",
-      "title": "Introduction to Literature",
-      "author": "Various Authors",
+      "id": "world-history-vol2",
+      "title": "World History Volume 2",
+      "author": "Ann Kordas et al.",
       "publisher": "OpenStax",
-      "cover": "https://via.placeholder.com/300x400/4A90E2/ffffff?text=Literature",
-      "description": "Study of literary works including poetry, fiction, and drama.",
-      "subjects": ["Literature", "English", "Writing"]
+      "cover": "thumbnails/world-history-vol2.jpg",
+      "description": "From 1400 CE to the present: exploration, empires, revolutions, and the modern world.",
+      "subjects": ["History", "World History", "Modern History"]
     }
   ]
 }
