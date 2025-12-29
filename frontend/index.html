@@ -126,8 +126,8 @@
         
         function renderBooks() {
             const selector = document.getElementById('bookSelector');
-            selector.innerHTML = books.map(book => `
-                <div class="book-card" onclick="selectBook(${JSON.stringify(book).replace(/"/g, '&quot;')})">
+            selector.innerHTML = books.map((book, index) => `
+                <div class="book-card" data-book-index="${index}" onclick="selectBookByIndex(${index})">
                     <img src="${book.cover}" alt="${book.title}" class="book-cover" onerror="this.src='https://via.placeholder.com/80x110/4A90E2/ffffff?text=Book'">
                     <div class="book-info">
                         <div class="book-title">${book.title}</div>
@@ -138,6 +138,10 @@
                     </div>
                 </div>
             `).join('');
+        }
+        
+        function selectBookByIndex(index) {
+            selectBook(books[index]);
         }
         
         function selectBook(book) {
