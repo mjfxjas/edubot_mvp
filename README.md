@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="media/edubot_logo_main.png" alt="EduBot Logo" width="300"/>
+</div>
+
 # EduBot
 
 **A serverless AI-powered Q&A system for educational institutions**
