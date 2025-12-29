@@ -18,6 +18,9 @@ EduBot provides curriculum-specific answers using retrieval-augmented generation
 - **RAG Pipeline**: Keyword-scored retrieval + AI generation
 - **Production Ready**: CI/CD, monitoring, error handling, and tests
 
+![EduBot correctly refuses to answer off-topic questions](docs/screenshots/working-properly.png)
+*EduBot only answers questions from the curriculum - no off-topic content*
+
 ## Architecture
 
 - **API**: Python Lambda function with REST endpoints
