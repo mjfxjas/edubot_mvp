@@ -47,29 +47,36 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Validate deploy role configuration
+    - name: Check OIDC deploy role secret
+      id: deploy-role
       run: |
         if [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ]; then
-          echo "Error: AWS_DEPLOY_ROLE_ARN secret is required for OIDC deploys."
-          exit 1
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+          echo "AWS_DEPLOY_ROLE_ARN is not set; skipping deploy steps."
+        else
+          echo "configured=true" >> "$GITHUB_OUTPUT"
         fi
     
     - name: Configure AWS credentials
+      if: steps.deploy-role.outputs.configured == 'true'
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
         aws-region: ${{ env.AWS_REGION }}
     
     - name: Login to ECR
+      if: steps.deploy-role.outputs.configured == 'true'
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
     
     - name: Create ECR repository if it doesn't exist
+      if: steps.deploy-role.outputs.configured == 'true'
       run: |
         aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" || \
         aws ecr create-repository --repository-name "$ECR_REPOSITORY"
     
     - name: Build and push image
+      if: steps.deploy-role.outputs.configured == 'true'
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
