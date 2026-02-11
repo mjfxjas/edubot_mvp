@@ -16,7 +16,7 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
     
@@ -30,4 +30,4 @@ jobs:
     
     - name: Lint code
       run: |
-        flake8 src/api/ --max-line-length=120 || echo "Linting skipped"
+        flake8 src/api/ --max-line-length=120
