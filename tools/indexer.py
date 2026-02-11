@@ -2,6 +2,8 @@
 import argparse, json, os, re, time, uuid, pathlib
 from typing import List, Dict, Any, Tuple, Optional
 
+#Purpose: index & index textbooks
+
 # Optional upload
 try:
     import boto3
