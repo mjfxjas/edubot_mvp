@@ -86,7 +86,7 @@ def _top_sections(bucket, prefix, k, question=""):
     # Get more sections initially for better coverage
     resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=k*3)
     keys = [o["Key"] for o in resp.get("Contents", [])]
-    
+
     # Fetch all sections
     all_sections = []
     for key in keys:
@@ -96,7 +96,7 @@ def _top_sections(bucket, prefix, k, question=""):
             all_sections.append((key, section))
         except Exception:
             continue
-    
+
     # Simple keyword scoring if question provided
     if question:
         keywords = set(question.lower().split())
@@ -111,7 +111,7 @@ def _top_sections(bucket, prefix, k, question=""):
         early_sections = [(0, k, s) for k, s in all_sections[:2]]
         combined = early_sections + top_scored
         return [k for _, k, _ in combined[:k]], [s for _, _, s in combined[:k]]
-    
+
     # Fallback: just return first k
     return keys[:k], [s for _, s in all_sections[:k]]
 
@@ -120,7 +120,7 @@ def _ask_with_gemini(question, sections):
     """Use Gemini API for answer generation"""
     if not GEMINI_API_KEY:
         return "[No Gemini API key configured]"
-    
+
     context = "\n\n---\n\n".join(
         s.get("text") or s.get("content", "") or "" for s in sections
     )[:30000]
@@ -141,8 +141,12 @@ Instructions:
 Answer:"""
 
     try:
+        gemini_url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+        )
         response = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}",
+            gemini_url,
             headers={"Content-Type": "application/json"},
             json={
                 "contents": [{
@@ -155,18 +159,18 @@ Answer:"""
             },
             timeout=30
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             if "candidates" in data and data["candidates"]:
                 return data["candidates"][0]["content"]["parts"][0]["text"]
-        
+
         if response.status_code == 429:
             log.warning("Gemini rate limit hit, falling back to Bedrock")
             return None  # Signal to use Bedrock fallback
-        
+
         return f"[Gemini API error: {response.status_code}]"
-        
+
     except Exception as e:
         log.warning(f"Gemini error: {e}, falling back to Bedrock")
         return None  # Signal to use Bedrock fallback
@@ -221,7 +225,7 @@ def _ask_with_bedrock(question, sections):
 def lambda_handler(event, context):
     request_id = context.aws_request_id if context else "local"
     log.info(f"Request {request_id} started")
-    
+
     try:
         # Handle both API Gateway and Function URL formats
         if "requestContext" in event and "http" in event["requestContext"]:
@@ -259,7 +263,7 @@ def lambda_handler(event, context):
 
             # Load and process
             keys, sections = _top_sections(BUCKET, book_index_prefix, TOP_K, question)
-            
+
             # Use Gemini if API key available, otherwise Bedrock
             if GEMINI_API_KEY:
                 answer = _ask_with_gemini(question, sections)
