@@ -6,6 +6,7 @@ import logging
 from urllib.parse import unquote_plus
 import base64
 import requests
+import re
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -28,29 +29,33 @@ bedrock = boto3.client("bedrock", region_name=AWS_REGION)
 
 
 def _parse_body(event):
-    """Parse request body with proper validation"""
+    """Decode an object request without altering literal percent signs."""
     body = event.get("body", "")
     if not body:
         return {}
-
+    if not isinstance(body, str):
+        raise ValueError("Request body must be JSON text")
     if event.get("isBase64Encoded"):
-        body = base64.b64decode(body).decode("utf-8")
-
+        try:
+            body = base64.b64decode(body, validate=True).decode("utf-8")
+        except (ValueError, UnicodeDecodeError) as error:
+            raise ValueError("Invalid base64 request body") from error
     try:
-        if "%" in body:
-            body = unquote_plus(body)
-    except Exception:
-        pass
-
-    try:
-        return json.loads(body)
+        parsed = json.loads(body)
     except json.JSONDecodeError:
-        return {"raw": body}
+        # Retain compatibility with older clients sending URL-encoded JSON.
+        try:
+            parsed = json.loads(unquote_plus(body))
+        except json.JSONDecodeError as error:
+            raise ValueError("Request body must be valid JSON") from error
+    if not isinstance(parsed, dict):
+        raise ValueError("Request body must be a JSON object")
+    return parsed
 
 
 def _validate_question(question):
     """Validate and sanitize question input"""
-    if not question or not question.strip():
+    if not isinstance(question, str) or not question.strip():
         return None
 
     question = question.strip()[:1000]  # Limit length
@@ -83,6 +88,8 @@ def _health_check():
 
 
 def _top_sections(bucket, prefix, k, question=""):
+    if k <= 0:
+        return [], []
     # Get more sections initially for better coverage
     resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=k*3)
     keys = [o["Key"] for o in resp.get("Contents", [])]
@@ -97,23 +104,27 @@ def _top_sections(bucket, prefix, k, question=""):
         except Exception:
             continue
 
-    # Simple keyword scoring if question provided
+    # Keep source keys paired with successfully loaded sections at every step.
+    selected = all_sections[:k]
     if question:
         keywords = set(question.lower().split())
-        scored = []
-        for key, section in all_sections:
-            text = (section.get("text") or "").lower()
-            score = sum(1 for kw in keywords if kw in text and len(kw) > 3)
-            scored.append((score, key, section))
-        scored.sort(reverse=True)
-        # Take top k by score, but ensure we get at least some early sections
-        top_scored = scored[:k-2] if len(scored) > k else scored
-        early_sections = [(0, k, s) for k, s in all_sections[:2]]
-        combined = early_sections + top_scored
-        return [k for _, k, _ in combined[:k]], [s for _, _, s in combined[:k]]
-
-    # Fallback: just return first k
-    return keys[:k], [s for _, s in all_sections[:k]]
+        ranked = sorted(
+            all_sections,
+            key=lambda pair: sum(
+                1 for keyword in keywords
+                if len(keyword) > 3 and keyword in (pair[1].get("text") or "").lower()
+            ),
+            reverse=True,
+        )
+        selected = all_sections[:min(2, k)]
+        selected_keys = {key for key, _ in selected}
+        for key, section in ranked:
+            if len(selected) >= k:
+                break
+            if key not in selected_keys:
+                selected.append((key, section))
+                selected_keys.add(key)
+    return [key for key, _ in selected], [section for _, section in selected]
 
 
 def _ask_with_gemini(question, sections):
@@ -251,9 +262,14 @@ def lambda_handler(event, context):
         if path == "/ask" and method == "POST":
             t_start = time.time()
 
-            body = _parse_body(event)
+            try:
+                body = _parse_body(event)
+            except ValueError as error:
+                return _ok({"error": str(error)}, 400)
             question = _validate_question(body.get("question", ""))
             book_id = body.get("book_id", "philosophy")
+            if not isinstance(book_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", book_id):
+                return _ok({"error": "Invalid book_id"}, 400)
 
             if not question:
                 return _ok({"error": "Invalid or missing question"}, 400)

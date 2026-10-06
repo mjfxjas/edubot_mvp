@@ -72,16 +72,16 @@ curl -X POST https://your-lambda-url/ask \
 
 - `GET /health` - System health and dependency status
 - `GET /indexes` - List available curriculum indexes
-- `POST /ask` - Ask questions based on curriculum
+- `POST /ask` - Ask questions based on curriculum; malformed JSON or invalid question/book IDs return HTTP 400.
+
+Sources identify only successfully loaded, distinct sections. Book IDs accept
+1–64 letters, numbers, underscores, or hyphens.
 
 ## Development
 
 ### Local Testing
 ```bash
-# Set environment
-export CURRICULUM_BUCKET=your-bucket-name
-
-# Run tests
+# Run the offline regression suite (AWS clients are mocked)
 python run_tests.py
 
 # Test locally with mock mode
