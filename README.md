@@ -4,29 +4,27 @@
 
 # EduBot
 
-**A serverless AI-powered Q&A system for educational institutions**
+Curriculum question-answering prototype using S3 indexes, a Python Lambda API, and model-generated responses.
 
-EduBot provides curriculum-specific answers using retrieval-augmented generation (RAG) with Amazon Bedrock. Students ask questions and receive answers based exclusively on their school's textbooks and course materials.
+The API retrieves textbook sections using keyword scores and includes them in the model prompt. Responses depend on retrieval results and the configured model.
 
 ## Features
 
-- **Curriculum-Based Answers**: Responses drawn only from uploaded course materials
-- **Dual AI Backend**: Gemini (free tier) with Bedrock fallback
+- **Retrieval**: Keyword-scored sections from uploaded course materials
+- **Model providers**: Gemini and Amazon Bedrock
 - **Serverless Architecture**: AWS Lambda with container deployment
-- **Modern Frontend**: Clean UI with book selection and collapsible explainer
-- **Secure & Private**: All data stays within your AWS account
+- **Frontend**: Book selection and question form
 - **RAG Pipeline**: Keyword-scored retrieval + AI generation
-- **Production Ready**: CI/CD, monitoring, error handling, and tests
+- **Development**: Test runner and GitHub Actions workflow
 
-![EduBot correctly refuses to answer off-topic questions](docs/screenshots/working-properly.png)
-*EduBot only answers questions from the curriculum - no off-topic content*
+![Example curriculum question and response](docs/screenshots/working-properly.png)
 
 ## Architecture
 
 - **API**: Python Lambda function with REST endpoints
 - **Storage**: S3 for curriculum documents and processed indexes
 - **AI**: Amazon Bedrock (Claude Haiku) for answer generation
-- **Security**: IAM roles, VPC isolation, KMS encryption
+- **Infrastructure**: IAM and KMS setup scripts
 - **Monitoring**: CloudWatch metrics and custom dashboards
 - **Deployment**: GitHub Actions CI/CD pipeline
 
@@ -39,7 +37,7 @@ EduBot provides curriculum-specific answers using retrieval-augmented generation
 
 ### 1. Deploy Infrastructure
 ```bash
-git clone https://github.com/YOUR_USERNAME/edubot_mvp.git
+git clone https://github.com/mjfxjas/edubot_mvp.git
 cd edubot_mvp
 
 # Set up AWS resources
@@ -96,7 +94,7 @@ print(handler.lambda_handler(event, None))
 ```
 
 ### CI/CD Pipeline
-Push to main branch triggers:
+Pushes to `main` run tests and lint. When `AWS_DEPLOY_ROLE_ARN` is configured, the workflow also builds and publishes the image and updates Lambda:
 1. Automated testing
 2. Code quality checks
 3. Docker build and ECR push
@@ -109,14 +107,13 @@ Push to main branch triggers:
 - `INDEX_PREFIX` - S3 prefix for processed indexes
 - `TOP_K` - Number of sections to retrieve (default: 20)
 - `BEDROCK_MODEL` - AI model ID (default: claude-3-haiku)
-- `GEMINI_API_KEY` - Google Gemini API key (optional, free tier)
+- `GEMINI_API_KEY` - Optional Google Gemini API key
 - `MOCK_BEDROCK` - Enable mock mode for development
 
 ### Security
-- All curriculum data encrypted with KMS
-- IAM roles with minimal required permissions
-- VPC isolation for Lambda function
-- No data leaves your AWS account
+- Infrastructure scripts configure KMS encryption for curriculum storage
+- IAM roles define access to curriculum data and model services
+- Gemini requests send prompt content to Google when that provider is used
 
 ## Monitoring
 
@@ -125,17 +122,9 @@ Push to main branch triggers:
 - Structured logging with request tracking
 - Automated alerts for error rates and performance
 
-## Production Considerations
-
-- **Scaling**: Lambda auto-scales based on demand
-- **Cost**: Pay-per-request pricing model
-- **Reliability**: Multi-AZ deployment with AWS managed services
-- **Backup**: S3 versioning and cross-region replication
-- **Updates**: Blue/green deployments via CI/CD pipeline
-
 ## Documentation
 
-- **[Cost Analysis](docs/COSTS.md)** - Detailed cost breakdown and ROI
+- [Cost Notes](docs/COSTS.md)
 - [API Documentation](docs/API.md)
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [Security Considerations](SECURITY.md)
@@ -147,30 +136,11 @@ Push to main branch triggers:
 - **World History Volume 1** - Prehistory to 1500 CE
 - **World History Volume 2** - 1400 CE to Present
 
-## TODO / Future Improvements
+## Limitations
 
-### High Priority
-- [ ] **Semantic Search**: Replace keyword scoring with proper embeddings (OpenAI/Bedrock)
-- [ ] **Vector Database**: Add Pinecone/FAISS for true similarity search
-- [ ] **Docker Build Fix**: Resolve Lambda image deployment issues for easier updates
-
-### Medium Priority
-- [ ] **User Authentication**: Add Cognito for student/teacher accounts
-- [ ] **Usage Analytics**: Track popular questions and book usage
-- [ ] **Answer Quality**: Add citation links to specific page numbers
-- [ ] **Multi-Book Search**: Allow searching across multiple books simultaneously
-
-### Nice to Have
-- [ ] **Chat History**: Store conversation context for follow-up questions
-- [ ] **Admin Dashboard**: Upload books and manage content via UI
-- [ ] **Mobile App**: React Native wrapper for iOS/Android
-- [ ] **Study Tools**: Flashcards, quizzes generated from curriculum
-
-### Known Issues
-- Retrieval is keyword-based (not semantic) - may miss relevant sections
-- Gemini free tier rate limits (15 req/min) - auto-falls back to Bedrock
-- Docker image deployment requires manual steps - CI/CD needs fixing
-- No caching - every question hits S3 and AI (could add Redis/ElastiCache)
+Retrieval uses keyword scores and can miss relevant sections. Responses are not
+guaranteed to stay within the curriculum. Provider limits can trigger fallback
+behavior, and requests are not cached.
 
 ## License
 
