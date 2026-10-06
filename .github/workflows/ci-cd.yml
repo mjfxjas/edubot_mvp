@@ -85,8 +85,7 @@ jobs:
         docker build -f src/api/Dockerfile -t "$IMAGE_URI" .
         docker push "$IMAGE_URI"
         
-        # Update Lambda function (create if doesn't exist)
+        # Update the existing Lambda function; fail if the update is rejected.
         aws lambda update-function-code \
           --function-name edubot-mvp-api-fn \
-          --image-uri "$IMAGE_URI" || \
-        echo "Lambda function may not exist yet - check infra setup"
+          --image-uri "$IMAGE_URI"
